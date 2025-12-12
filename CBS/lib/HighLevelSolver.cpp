@@ -194,6 +194,18 @@ inline bool HighLevelSolver::isEmpty(const std::vector<TreeNode> &tree)
 
 std::vector<std::vector<Cell>> HighLevelSolver::solve(const Map &map)
 {
+    std::cout<<"OBSTACLES\n";
+    for(int i=0; i<map.cells.size(); i++){
+        for(int j=0; j<map.cells.size(); j++) {
+            if(map.cells[i][j].isObstacle == 0) {
+                std::cout<<"0";
+            }
+            else {
+                std::cout<<"1";
+            }
+        }
+        std::cout<<std::endl;
+    }
     for(int i=0; i<map.agents.size(); i++) {
         std::cout<< "Agent: " << i << "(" << map.agents[i].start.x << ", " << map.agents[i].start.y << ") -> " << "(" << map.agents[i].end.x << ", " << map.agents[i].end.y << ") \n";
     }
@@ -206,14 +218,16 @@ std::vector<std::vector<Cell>> HighLevelSolver::solve(const Map &map)
     if (root.getCost() < INT_MAX) {
         tree.emplace_back(root);
     }
+    TreeNode P;
 
-    while (!isEmpty(tree)) {
+    do {
+        std::cout<<"t";
         int bestIndex = findBestNodeIndex(tree);
         if (bestIndex == -1) {
             break;
         }
 
-        TreeNode P = tree[bestIndex];
+        P = tree[bestIndex];
         tree.erase(tree.begin() + bestIndex);
 
         bool vertexConflict = hasConflict(P);
@@ -221,6 +235,7 @@ std::vector<std::vector<Cell>> HighLevelSolver::solve(const Map &map)
 
         if (!vertexConflict && !edgeConflict) {
             // konfliktów brak – zwracamy rozwiązanie
+            std::cout<<P;
             return P.getSolution();
         }
 
@@ -312,8 +327,9 @@ std::vector<std::vector<Cell>> HighLevelSolver::solve(const Map &map)
                 }
             }
         }
-    }
+    } while (!isEmpty(tree));
 
     // Brak rozwiązania – zwracamy pusty wektor
-    return std::vector<std::vector<Cell>>();
+    std::cout<<P;
+    return P.getSolution();
 }

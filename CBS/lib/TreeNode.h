@@ -18,7 +18,20 @@ public:
     int getCost() const;
 
     std::vector<Constraint> getConstraints() const;
+    friend std::ostream& operator<<(std::ostream& os, const TreeNode& node) {
+        os << "Cost: " << node.getCost() << "\n";
+        os << "Constraints: " << node.constraints.size() << " constraints\n";
+        os << "Solution: \n";
+        
+        for (const auto& row : node.getSolution()) {
+            for (const auto& cell : row) {
+                os << "(" << cell.x << ", " << cell.y << ") -> ";
+            }
+            os << "\n";
+        }
 
+        return os;
+    }
     TreeNode();
     TreeNode(const std::vector<Constraint> &constraints);
     ~TreeNode();

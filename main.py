@@ -18,7 +18,7 @@ def make_env():
 
 
 def main():
-    n_envs = 8
+    n_envs = 16
 
     # Create the vectorized environment for training
     vec_env = make_vec_env(
@@ -61,7 +61,7 @@ def main():
         )
 
     # Train the model
-    total_timesteps = 2_000_000
+    total_timesteps = 1_500_000
     model.learn(total_timesteps=total_timesteps)
 
     # Save the trained model
