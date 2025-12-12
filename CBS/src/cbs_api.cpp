@@ -36,7 +36,7 @@ extern "C" {
 */
 char* solve_cbs(const char* json_input)
 {
-    std::cout<<"-------- CPP ------------\n";
+    // std::cout<<"-------- CPP ------------\n";
     try {
         json in = json::parse(json_input);
         
@@ -55,11 +55,13 @@ char* solve_cbs(const char* json_input)
             }
         }
 
-        for (auto& o : obstacles) {
-            int x = o[0];
-            int y = o[1];
-            if (x >= 0 && x < N && y >= 0 && y < N) {
-                map.cells[x][y].isObstacle = true;
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                if (obstacles[i][j] == 1) {  // Jeśli jest przeszkoda
+                    map.cells[i][j].isObstacle = true;  // Ustawienie przeszkody w komórce (i, j)
+                } else {  // Jeśli nie ma przeszkody
+                    map.cells[i][j].isObstacle = false;  // Ustawienie wolnego miejsca
+                }
             }
         }
 
@@ -107,7 +109,7 @@ char* solve_cbs(const char* json_input)
         char* result = (char*)malloc(err.size() + 1);
         std::memcpy(result, err.c_str(), err.size() + 1);
 
-        std::cout << "7 - Error occurred, returning error" << std::endl;
+        // std::cout << "7 - Error occurred, returning error" << std::endl;
         return result;
     }
 }

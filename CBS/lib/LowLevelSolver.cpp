@@ -11,9 +11,11 @@ LowLevelSolver::~LowLevelSolver() = default;
 bool LowLevelSolver::checkStartGoalCells(const Cell &start, const Cell &goal, const Map &map)
 {
     if (!isValid(start.x, start.y, map)) {
+        std::cout<<"---------------------START on obstacle!!!" << start.x << ","<< start.y << ")\n";
         return false;
     }
     if (!isValid(goal.x, goal.y, map)) {
+        std::cout<<"---------------------GOAL on obstacle!!!" << goal.x << ","<< goal.y << ")\n";
         return false;
     }
     if (start.isObstacle) {
@@ -30,11 +32,14 @@ inline bool LowLevelSolver::isObstacle(const Map &map, int x, int y) {
 }
 
 inline bool LowLevelSolver::isValid(int x, int y, const Map &map) {
+    if (x == 0 && y == 0) return true; 
     if (x < 0 || y < 0) return false;
     if (x >= static_cast<int>(map.cells.size())) return false;
     if (map.cells.empty()) return false;
     if (y >= static_cast<int>(map.cells[0].size())) return false;
-    if (isObstacle(map, x, y)) return false;
+    if (isObstacle(map, x, y)){
+        return false;
+    }
     return true;
 }
 

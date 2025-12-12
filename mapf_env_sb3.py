@@ -62,7 +62,7 @@ class MAPF_SB3Env(gym.Env):
 
     def _flatten_obs_list(self, obs_list):
         per_agent_vecs = []
-        for obs in obs_list:
+        for obs in obs_list:  # Access the observations for all agents
             fov = obs["fov"].astype(np.float32).reshape(-1)
             goal_vec = obs["goal_vec"].astype(np.float32).reshape(-1)
             action_mask = obs["action_mask"].astype(np.float32).reshape(-1)
@@ -76,7 +76,7 @@ class MAPF_SB3Env(gym.Env):
         if seed is not None:
             self._env.seed(seed)
 
-        obs_list = self._env.reset()
+        obs_list, _ = self._env.reset()  # Correct the output variable name
         flat_obs = self._flatten_obs_list(obs_list)
 
         info = {
@@ -106,3 +106,4 @@ class MAPF_SB3Env(gym.Env):
 
     def render(self):
         self._env.debug_print_map()
+

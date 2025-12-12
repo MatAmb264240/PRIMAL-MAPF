@@ -18,7 +18,16 @@ private:
     static int findHeuristicDistance(const Cell &current_cell, const Cell &cell); // Manhattan distance calculation
     static bool isValid(int x, int y, const Map &map);                             // Checks if given cells are valid
     static int findMinCostIndex(const std::vector<Cell> &OPEN);
+    friend std::ostream& operator<<(std::ostream& os, const LowLevelSolver& solver) {        
+        for (const auto& row : solver.optimalPaths) {
+            for (const auto& cell : row) {
+                os << "(" << cell.x << ", " << cell.y << ") -> ";
+            }
+            os << "\n";
+        }
 
+        return os;
+    }
 public:
     LowLevelSolver();
     ~LowLevelSolver();

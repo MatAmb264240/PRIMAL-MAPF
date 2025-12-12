@@ -28,6 +28,7 @@ void TreeNode::addConstraint(const Constraint & constaint) {
 void TreeNode::updateSolution(const Map &map) {
     LowLevelSolver solver;
     solution = solver.findOptimalPaths(constraints, map);
+    std::cout<<solver;
 }
 
 void TreeNode::updateCost() {
@@ -50,3 +51,4 @@ void TreeNode::updateCost() {
     }
     this->cost = totalCost;
 }
+

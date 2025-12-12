@@ -1,4 +1,4 @@
-# il_pretrain.py
+import os
 import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, TensorDataset
@@ -30,7 +30,7 @@ def main():
     dataset = TensorDataset(obs, actions)
     loader = DataLoader(dataset, batch_size=256, shuffle=True)
 
-    # init env just for policy
+    # env tylko do policy
     vec_env = make_vec_env(make_env(), n_envs=1)
 
     policy_kwargs = dict(
@@ -43,30 +43,41 @@ def main():
         net_arch=dict(pi=[], vf=[]),
     )
 
-    model = RecurrentPPO(
-        policy="MlpLstmPolicy",
-        env=vec_env,
-        learning_rate=3e-4,
-        n_steps=128,
-        batch_size=256,
-        n_epochs=4,
-        gamma=0.99,
-        gae_lambda=0.95,
-        ent_coef=0.01,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-    )
+    model_path = "ppo_trained_agent.zip"
+
+    if os.path.exists(model_path):
+        print(f"✅ Ładuję istniejący model z {model_path}")
+        model = RecurrentPPO.load(
+            model_path,
+            env=vec_env,
+            device="auto",
+        )
+        # UWAGA: policy_kwargs z save’a są już w modelu – nie podawaj ich drugi raz
+    else:
+        print("🆕 Brak istniejącego modelu, tworzę nowy od zera")
+        model = RecurrentPPO(
+            policy="MlpLstmPolicy",
+            env=vec_env,
+            learning_rate=3e-4,
+            n_steps=128,
+            batch_size=256,
+            n_epochs=4,
+            gamma=0.99,
+            gae_lambda=0.95,
+            ent_coef=0.01,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            policy_kwargs=policy_kwargs,
+            verbose=1,
+        )
 
     policy = model.policy
     device = policy.device
     optimizer = th.optim.Adam(policy.parameters(), lr=1e-4)
 
-    # 🔥 poprawne LSTM size
     hidden_size = policy.lstm_actor.hidden_size
 
-    num_epochs = 15
+    num_epochs = 30
 
     for epoch in range(num_epochs):
         total_loss = 0
@@ -78,14 +89,12 @@ def main():
 
             B = batch_obs.shape[0]
 
-            # 🔥 poprawna inicjalizacja LSTM
             lstm_states = (
                 th.zeros((1, B, hidden_size), device=device),  # h
                 th.zeros((1, B, hidden_size), device=device),  # c
             )
             episode_starts = th.ones((B,), dtype=th.float32, device=device)
 
-            # 🔥 RecurrentPPO distribution call
             dist, _ = policy.get_distribution(
                 batch_obs,
                 lstm_states,
@@ -104,8 +113,8 @@ def main():
 
         print(f"[IL] Epoch {epoch+1}/{num_epochs} - loss = {total_loss/total_n:.4f}")
 
-    model.save("ppo_il_pretrained")
-    print("Saved IL model as ppo_il_pretrained.zip")
+    model.save(model_path)
+    print(f"💾 Zapisano model do {model_path}")
 
 
 if __name__ == "__main__":

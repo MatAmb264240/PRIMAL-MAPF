@@ -1,6 +1,4 @@
-# generate_expert_data.py
 import numpy as np
-
 from mapf_env_sb3 import MAPF_SB3Env
 from cbs_wrapper import solve_cbs
 
@@ -23,7 +21,7 @@ def main():
     grid_size = 10
     num_agents = 4
     fov_size = 10
-    obstacle_density = 0.2
+    obstacle_density = 0.4
     max_steps = 64
 
     env = MAPF_SB3Env(
@@ -37,22 +35,30 @@ def main():
     all_obs = []
     all_actions = []
 
-    num_episodes = 2000  # możesz podbić jak sprzęt wyrabia
+    num_episodes = 3000  # możesz podbić jak sprzęt wyrabia
 
     for ep in range(num_episodes):
         obs, info = env.reset()
         desc = env._env.get_cbs_description()
 
         try:
-            paths = solve_cbs(
-                grid_size=desc["grid_size"],
-                obstacles=desc["obstacles"],
-                starts=desc["starts"],
-                goals=desc["goals"],
-            )
+                # Get result from solve_cbs and directly handle it as a dictionary
+                paths = solve_cbs(
+                    grid_size=desc["grid_size"],
+                    obstacles=desc["obstacles"],
+                    starts=desc["starts"],
+                    goals=desc["goals"],
+                )
+
+                # Debug print the structure of the returned paths
+                print(f"[EP {ep}] CBS paths: {paths}")  # Debug print the paths
+
         except Exception as e:
             print(f"[EP {ep}] CBS failed: {e}")
             continue
+
+        # Debug print to see the exact structure of paths returned by solve_cbs
+        print(f"Paths (structure): {paths}")  # This line will output the structure of the paths.
 
         max_path_len = max(len(p) for p in paths.values())
         T = min(max_path_len - 1, max_steps)
