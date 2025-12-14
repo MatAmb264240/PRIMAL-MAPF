@@ -39,8 +39,9 @@ def main():
 
     try:
         # Try to load the pre-trained IL model
-        model = RecurrentPPO.load("ppo_trained_agent", env=vec_env)
+        model = RecurrentPPO.load("ppo_trained_agent", env=vec_env, device="cuda")
         print("Loaded ppo_trained_agent")
+        print(model.device) 
     except Exception as e:
         print(f"Error loading IL model: {e}")
         print("Creating a fresh RecurrentPPO model.")
@@ -61,7 +62,7 @@ def main():
         )
 
     # Train the model
-    total_timesteps = 1_500_000
+    total_timesteps = 20_500_000
     model.learn(total_timesteps=total_timesteps)
 
     # Save the trained model
