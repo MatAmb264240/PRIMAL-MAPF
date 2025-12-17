@@ -50,7 +50,7 @@ def main():
         model = RecurrentPPO.load(
             model_path,
             env=vec_env,
-            device="auto",
+            device="cuda",
         )
         # UWAGA: policy_kwargs z save’a są już w modelu – nie podawaj ich drugi raz
     else:

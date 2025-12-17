@@ -1,32 +1,55 @@
-import csv
+import torch
+import numpy as np
+
 from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.env_util import make_vec_env
+
 from mapf_env_sb3 import MAPF_SB3Env
 from custom_policy import MAPFFeatureExtractor
+from il_callback import OnlineILCallback
 
 
-def make_env():
+# =========================================================
+# === LOAD EXPERT DATA ONCE
+# =========================================================
+expert_data = np.load("expert_dataset.npz")
+EXPERT_OBS = expert_data["obs"]
+EXPERT_ACTIONS = expert_data["actions"]
+
+
+def load_one_expert_batch(batch_size=16):
+    idx = np.random.choice(len(EXPERT_OBS), size=batch_size, replace=False)
+
+    obs = torch.as_tensor(EXPERT_OBS[idx], dtype=torch.float32, device="cuda")
+    actions = torch.as_tensor(EXPERT_ACTIONS[idx], dtype=torch.long, device="cuda")
+
+    return obs, actions
+
+
+# =========================================================
+# === ENV FACTORY (CURRICULUM)
+# =========================================================
+def make_env(density):
     def _init():
         return MAPF_SB3Env(
             grid_size=10,
             num_agents=4,
             fov_size=10,
-            obstacle_density=0.2,
+            obstacle_density=density,
             max_steps=64,
         )
     return _init
 
 
+# =========================================================
+# === MAIN
+# =========================================================
 def main():
-    n_envs = 16
+    device = "cuda"
 
-    # Create the vectorized environment for training
-    vec_env = make_vec_env(
-        make_env(),
-        n_envs=n_envs,
-    )
-
-    # Specify policy arguments
+    # -----------------------------------------------------
+    # POLICY CONFIG
+    # -----------------------------------------------------
     policy_kwargs = dict(
         features_extractor_class=MAPFFeatureExtractor,
         features_extractor_kwargs=dict(
@@ -34,16 +57,27 @@ def main():
             fov_size=10,
             n_channels=4,
         ),
-        net_arch=dict(pi=[], vf=[]),  # Simple net architecture
+        net_arch=dict(pi=[], vf=[]),
     )
 
+    # -----------------------------------------------------
+    # INIT ENV (start density = 0.0)
+    # -----------------------------------------------------
+    current_density = 0.0
+    vec_env = make_vec_env(make_env(current_density), n_envs=1)
+
+    # -----------------------------------------------------
+    # LOAD OR CREATE MODEL
+    # -----------------------------------------------------
     try:
-        # Try to load the pre-trained IL model
-        model = RecurrentPPO.load("ppo_trained_agent", env=vec_env)
+        model = RecurrentPPO.load(
+            "ppo_trained_agent",
+            env=vec_env,
+            device=device,
+        )
         print("Loaded ppo_trained_agent")
-    except Exception as e:
-        print(f"Error loading IL model: {e}")
-        print("Creating a fresh RecurrentPPO model.")
+    except Exception:
+        print("Creating new RecurrentPPO model")
         model = RecurrentPPO(
             policy="MlpLstmPolicy",
             env=vec_env,
@@ -58,63 +92,52 @@ def main():
             max_grad_norm=0.5,
             policy_kwargs=policy_kwargs,
             verbose=1,
+            device=device,
         )
 
-    # Train the model
-    total_timesteps = 1_500_000
-    model.learn(total_timesteps=total_timesteps)
-
-    # Save the trained model
-    model.save("ppo_trained_agent")
-
-    # ====== TEST ======
-    test_env = MAPF_SB3Env(
-        grid_size=10,
-        num_agents=4,
-        fov_size=10,
-        obstacle_density=0.2,
-        max_steps=64,
+    # -----------------------------------------------------
+    # IL CALLBACK
+    # -----------------------------------------------------
+    il_callback = OnlineILCallback(
+        expert_loader_fn=load_one_expert_batch,
+        il_coef=0.01,
+        every_n_steps=10_000,
+        verbose=2,
     )
 
-    # Prepare to write results to CSV
-    with open('test_results_2.csv', mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Episode", "Test Reward", "Agents at Goal", "Elapsed Time"])
+    # -----------------------------------------------------
+    # CURRICULUM TRAINING LOOP
+    # -----------------------------------------------------
+    TOTAL_STEPS = 5_000_000
+    CURRICULUM_END = 0.2
+    CHUNK = 50_000
 
-        episode = 1
-        obs, info = test_env.reset()
-        ep_reward = 0.0
-        terminated = False
-        truncated = False
+    steps_done = 0
 
-        # Initialize LSTM states
-        lstm_states = None
-        episode_starts = True
+    while steps_done < TOTAL_STEPS:
+        progress = steps_done / TOTAL_STEPS
+        new_density = CURRICULUM_END * progress
 
-        while not (terminated or truncated):
-            # Predict the action and pass the LSTM states
-            action, lstm_states = model.predict(
-                obs,
-                state=lstm_states,
-                episode_start=episode_starts,
-                deterministic=True,
-            )
-            obs, reward, terminated, truncated, info = test_env.step(action)
-            ep_reward += float(reward)
+        vec_env.close()
+        vec_env = make_vec_env(make_env(new_density), n_envs=1)
+        model.set_env(vec_env)
 
-            # After an episode ends, reset the LSTM state
-            episode_starts = terminated or truncated
+        model.learn(
+            total_timesteps=CHUNK,
+            callback=il_callback,
+            reset_num_timesteps=False,
+        )
 
-            # Log the results after each episode
-            if terminated or truncated:
-                agents_at_goal = info.get("num_agents_at_goal", 0)
-                writer.writerow([episode, ep_reward, agents_at_goal, test_env._env.steps])
-                print(f"Episode {episode}: Reward = {ep_reward}, Agents at Goal = {agents_at_goal}")
-                episode += 1
-                ep_reward = 0.0  # Reset reward for next episode
-                obs, info = test_env.reset()  # Reset the environment for the next episode
+        steps_done += CHUNK
+        print(
+            f"[CURRICULUM] steps={steps_done:,} "
+            f"density={new_density:.3f}"
+        )
 
-        print("Test completed. Results saved to 'test_results.csv'.")
+        model.save("ppo_trained_agent")
+
+    vec_env.close()
+    print("Training finished.")
 
 
 if __name__ == "__main__":
