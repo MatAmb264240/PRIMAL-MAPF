@@ -22,7 +22,7 @@ class SimpleMAPFEnv(gym.Env):
         grid_size=8,
         num_agents=3,
         fov_size=10,
-        obstacle_density=0.1,
+        obstacle_density=0.0,
         max_steps=64,
     ):
         super().__init__()
@@ -307,10 +307,8 @@ class SimpleMAPFEnv(gym.Env):
                     if (tx, ty) == (gx, gy):
                         fov[fx, fy, 2] = 1.0
 
-        # własna pozycja
         fov[half, half, 3] = 1.0
 
-        # goal vec
         gx, gy = self.agent_goals[agent_id]
         dx, dy = gx - ax, gy - ay
         dist = np.sqrt(dx*dx + dy*dy)

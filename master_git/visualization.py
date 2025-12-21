@@ -1,87 +1,57 @@
+import os
 import numpy as np
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 from matplotlib import animation
-from IPython.display import HTML
-from master.node import GridNode
 
 
-def draw(grid_map, agents=None, solution=None, fig_size=(6.4, 6.4)):
-    # Assign different collor for different agents:
-    collors = [tuple(np.random.randint(0, 255, 3)) for i in range(len(agents))]
-    if solution is not None:
-        fig = plt.figure(figsize=fig_size)
-        fig.set_size_inches(*fig_size)
-        ax = plt.Axes(fig, [0., 0., 1., 1.])
-        ax.set_axis_off()
-        fig.add_axes(ax)
-        images = []
+def visualize_episode(obstacles, starts, goals, trajectories, save_path):
+    """
+    obstacles: numpy array [H, W] with 0 = free, 1 = obstacle
+    starts: list of (x, y)
+    goals: list of (x, y)
+    trajectories: list of list-of-(x,y), len = num_agents
+    save_path: path to mp4
+    """
 
-        for t in range(max(map(lambda x: len(x[0]), solution.values()))):
-            k = 5
-            hIm = grid_map.height * k
-            wIm = grid_map.width * k
-            im = Image.new('RGB', (wIm, hIm), color='white')
-            draw = ImageDraw.Draw(im)
+    H, W = obstacles.shape
+    k = 20  # pixel size per cell
+    colors = [tuple(np.random.randint(0, 255, 3)) for _ in starts]
 
-            for i in range(grid_map.height):
-                for j in range(grid_map.width):
-                    if (grid_map.cells[i][j] == 1):
-                        draw.rectangle((j * k, i * k, (j + 1) * k - 1, (i + 1) * k - 1), fill=(70, 80, 80))
-                    elif (grid_map.cells[i][j] == 2):
-                        draw.rectangle((j * k, i * k, (j + 1) * k - 1, (i + 1) * k - 1), fill='green')
+    # prepare figure
+    fig = plt.figure(figsize=(W/2, H/2))
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
 
-            for i, (path, length) in enumerate(solution.values()):
-                step = path[min(t, len(path) - 1)]
-                if (grid_map.traversable(step.i, step.j)):
-                    draw.rectangle((step.j * k, step.i * k, (step.j + 1) * k - 1, (step.i + 1) * k - 1),
-                                   fill=collors[i], width=0)
-                else:
-                    draw.rectangle((step.j * k, step.i * k, (step.j + 1) * k - 1, (step.i + 1) * k - 1),
-                                   fill=(230, 126, 34), width=0)
+    frames = []
+    T = max(len(path) for path in trajectories)
 
-            for i, agent in enumerate(agents):
-                start = GridNode(agent.start_i, agent.start_j)
-                goal = GridNode(agent.goal_i, agent.goal_j)
-                if (start is not None) and (grid_map.traversable(start.i, start.j)):
-                    draw.rectangle((start.j * k + 1, start.i * k + 1, (start.j + 1) * k - 2, (start.i + 1) * k - 2),
-                                   fill=collors[i], width=0)
+    for t in range(T):
+        img = Image.new("RGB", (W*k, H*k), "white")
+        draw = ImageDraw.Draw(img)
 
-                if (goal is not None) and (grid_map.traversable(goal.i, goal.j)):
-                    draw.ellipse((goal.j * k + 1, goal.i * k + 1, (goal.j + 1) * k - 2, (goal.i + 1) * k - 2),
-                                   fill=collors[i], width=0)
-            img = plt.imshow(im, animated=True)
-            images.append([img])
-        ani = animation.ArtistAnimation(fig, images, interval=400, blit=True, repeat_delay=100)
-        HTML(ani.to_html5_video())
-        print("Solution was found, cost = ", sum([el[1] for el in solution.values()]))
-        return ani
-    else:
-        k = 5
-        hIm = grid_map.height * k
-        wIm = grid_map.width * k
-        im = Image.new('RGB', (wIm, hIm), color='white')
-        draw = ImageDraw.Draw(im)
+        # Draw map
+        for i in range(H):
+            for j in range(W):
+                if obstacles[i, j] == 1:
+                    draw.rectangle((j*k, i*k, j*k+k, i*k+k), fill=(70, 80, 80))
 
-        for i in range(grid_map.height):
-            for j in range(grid_map.width):
-                if (grid_map.cells[i][j] == 1):
-                    draw.rectangle((j * k, i * k, (j + 1) * k - 1, (i + 1) * k - 1), fill=(70, 80, 80))
-                elif (grid_map.cells[i][j] == 2):
-                    draw.rectangle((j * k, i * k, (j + 1) * k - 1, (i + 1) * k - 1), fill='green')
+        # Draw goals
+        for agent_id, (gx, gy) in enumerate(goals):
+            draw.ellipse((gy*k+4, gx*k+4, gy*k+k-4, gx*k+k-4), fill=colors[agent_id])
 
-        for i, agent in enumerate(agents):
-            start = GridNode(agent.start_i, agent.start_j)
-            goal = GridNode(agent.goal_i, agent.goal_j)
-            if (start is not None) and (grid_map.traversable(start.i, start.j)):
-                draw.rectangle((start.j * k, start.i * k, (start.j + 1) * k - 1, (start.i + 1) * k - 1),
-                               fill=collors[i], width=0)
+        # Draw agents
+        for agent_id, traj in enumerate(trajectories):
+            pos = traj[min(t, len(traj)-1)]
+            x, y = pos
+            draw.rectangle((y*k+2, x*k+2, y*k+k-2, x*k+k-2), fill=colors[agent_id])
 
-            if (goal is not None) and (grid_map.traversable(goal.i, goal.j)):
-                draw.ellipse((goal.j * k, goal.i * k, (goal.j + 1) * k - 1, (goal.i + 1) * k - 1), fill=collors[i],
-                               width=0)
+        frame = plt.imshow(img, animated=True)
+        frames.append([frame])
 
-        fig, ax = plt.subplots(dpi=150)
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-        plt.imshow(np.asarray(im))
+    ani = animation.ArtistAnimation(fig, frames, interval=300, blit=True)
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    ani.save(save_path, writer="ffmpeg")
+    plt.close(fig)

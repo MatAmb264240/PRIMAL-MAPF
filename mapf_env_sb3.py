@@ -33,7 +33,7 @@ class MAPF_SB3Env(gym.Env):
         self.max_steps = max_steps
 
         # oryginalne środowisko
-        self._env = SimpleMAPFEnv(
+        self.env = SimpleMAPFEnv(
             grid_size=self.grid_size,
             num_agents=self.num_agents,
             fov_size=self.fov_size,
@@ -74,9 +74,9 @@ class MAPF_SB3Env(gym.Env):
 
     def reset(self, seed=None, options=None):
         if seed is not None:
-            self._env.seed(seed)
+            self.env.seed(seed)
 
-        obs_list, _ = self._env.reset()  # Correct the output variable name
+        obs_list, _ = self.env.reset()  # Correct the output variable name
         flat_obs = self._flatten_obs_list(obs_list)
 
         info = {
@@ -91,7 +91,7 @@ class MAPF_SB3Env(gym.Env):
         """
         action = np.array(action, dtype=np.int32).tolist()
 
-        obs_list, rewards, done, info = self._env.step(action)
+        obs_list, rewards, done, info = self.env.step(action)
         self._last_info = info
 
         flat_obs = self._flatten_obs_list(obs_list)
@@ -100,10 +100,10 @@ class MAPF_SB3Env(gym.Env):
         reward_team = float(sum(rewards))
 
         terminated = bool(done)
-        truncated = bool(self._env.steps >= self.max_steps)
+        truncated = bool(self.env.steps >= self.max_steps)
 
         return flat_obs, reward_team, terminated, truncated, info
 
     def render(self):
-        self._env.debug_print_map()
+        self.env.debug_print_map()
 
