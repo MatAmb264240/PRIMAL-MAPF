@@ -60,9 +60,12 @@ class MAPF_SB3Env(gym.Env):
 
         self._last_info = {}
 
+    def init_env(self, density):
+        self._env.init_env(density=density)
+
     def _flatten_obs_list(self, obs_list):
         per_agent_vecs = []
-        for obs in obs_list:  # Access the observations for all agents
+        for obs in obs_list:
             fov = obs["fov"].astype(np.float32).reshape(-1)
             goal_vec = obs["goal_vec"].astype(np.float32).reshape(-1)
             action_mask = obs["action_mask"].astype(np.float32).reshape(-1)
@@ -76,7 +79,7 @@ class MAPF_SB3Env(gym.Env):
         if seed is not None:
             self._env.seed(seed)
 
-        obs_list, _ = self._env.reset()  # Correct the output variable name
+        obs_list, _ = self._env.reset()
         flat_obs = self._flatten_obs_list(obs_list)
 
         info = {

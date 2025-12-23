@@ -26,7 +26,6 @@ class OnlineILCallback(BaseCallback):
 
     @staticmethod
     def _get_batch_size_and_device(obs):
-        # obs może być tensorem albo dict tensora
         if isinstance(obs, dict):
             first = next(iter(obs.values()))
             return first.shape[0], first.device
@@ -54,7 +53,6 @@ class OnlineILCallback(BaseCallback):
 
         batch_size, device = self._get_batch_size_and_device(obs)
 
-        # WAŻNE: sb3_contrib w Twojej wersji robi (1.0 - episode_start), więc musi być float
         episode_starts = torch.ones((batch_size,), dtype=torch.float32, device=device)
 
         # === MUSI istnieć, bo w Twoim stacktrace jest self.lstm_actor ===

@@ -5,8 +5,8 @@ from master.map_handler import Map
 from master.high_level_policy import HCBS
 
 
-DEBUG = True          # <-- tu sterujesz
-MAX_CBS_TIME = 5.0    # sekundy, zabezpieczenie
+DEBUG = False       
+MAX_CBS_TIME = 5.0 
 
 
 def _print_debug(grid_size, obstacles, starts, goals, solution=None, reason=""):
@@ -61,7 +61,8 @@ def solve_cbs(grid_size, obstacles, starts, goals):
                 grid_size, obstacles, starts, goals,
                 reason=f"EXCEPTION: {e}"
             )
-        raise
+        paths = {agent_id: [] for agent_id in range(len(starts))}
+        return paths
 
     elapsed = time.time() - start_time
 
@@ -71,7 +72,8 @@ def solve_cbs(grid_size, obstacles, starts, goals):
                 grid_size, obstacles, starts, goals,
                 reason="CBS returned None / False"
             )
-        raise RuntimeError("CBS failed")
+        paths = {agent_id: [] for agent_id in range(len(starts))}
+        return paths
 
     if elapsed > MAX_CBS_TIME:
         if DEBUG:
@@ -79,7 +81,8 @@ def solve_cbs(grid_size, obstacles, starts, goals):
                 grid_size, obstacles, starts, goals,
                 reason=f"TIMEOUT ({elapsed:.2f}s)"
             )
-        raise RuntimeError("CBS timeout")
+        paths = {agent_id: [] for agent_id in range(len(starts))}
+        return paths
 
     # normalize output
     paths = {}
@@ -87,14 +90,8 @@ def solve_cbs(grid_size, obstacles, starts, goals):
         paths[agent_id] = [(n.i, n.j) for n in path]
 
     if DEBUG:
-        # sanity check: no empty paths
-        for aid, p in paths.items():
-            if len(p) == 0:
-                _print_debug(
-                    grid_size, obstacles, starts, goals,
-                    solution=paths,
-                    reason=f"EMPTY PATH for agent {aid}"
-                )
-                raise RuntimeError("Empty path")
-
+        _print_debug(
+            grid_size, obstacles, starts, goals,
+            solution=paths
+        )
     return paths

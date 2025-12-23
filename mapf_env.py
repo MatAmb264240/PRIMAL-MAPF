@@ -2,9 +2,10 @@
 import numpy as np
 import random
 import gymnasium as gym
+from collections import deque
 from gymnasium import spaces
 from collections import deque
-
+import solve_cbs
 
 class SimpleMAPFEnv(gym.Env):
     """
@@ -32,6 +33,8 @@ class SimpleMAPFEnv(gym.Env):
         self.OBSTACLE_DENSITY = obstacle_density
         self.max_steps = max_steps
         self.seed_value = None  # Initialize the seed variable
+        self.init_starts = None
+        self.init_ends = None
 
         # 0 = stay, 1 = right, 2 = left, 3 = down, 4 = up
         self.ACTIONS = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0)]
@@ -53,7 +56,8 @@ class SimpleMAPFEnv(gym.Env):
             }
         )
 
-        self.reset()
+        self.init_env(density=obstacle_density)
+        
     def seed(self, seed=None):
         """
         Set the seed for the environment.
@@ -63,44 +67,43 @@ class SimpleMAPFEnv(gym.Env):
             random.seed(seed)
             np.random.seed(seed)
 
-    def _reachable(self, start, goal):
-        """Zwraca True, jeśli istnieje ścieżka start→goal omijająca przeszkody."""
-        (sx, sy) = start
-        (gx, gy) = goal
 
-        if self.OBSTACLES[sx, sy] == 1 or self.OBSTACLES[gx, gy] == 1:
-            return False
-        if (sx, sy) == (gx, gy):
+    def bfs_reachable(self, obstacles, start, goal):
+        if start == goal:
             return True
 
+        n, m = obstacles.shape
+
+        if obstacles[start[0], start[1]] == 1:
+            return False
+        if obstacles[goal[0], goal[1]] == 1:
+            return False
+
         visited = set()
-        queue = [(sx, sy)]
-        visited.add((sx, sy))
+        q = deque([start])
+        visited.add(start)
 
-        moves = [(1,0), (-1,0), (0,1), (0,-1)]
+        while q:
+            x, y = q.popleft()
 
-        while queue:
-            x, y = queue.pop(0)
-
-            for dx, dy in moves:
+            for dx, dy in ((1,0), (-1,0), (0,1), (0,-1)):
                 nx, ny = x + dx, y + dy
 
-                if not (0 <= nx < self.GRID_SIZE and 0 <= ny < self.GRID_SIZE):
-                    continue
-
-                if self.OBSTACLES[nx, ny] == 1:
-                    continue
-
-                if (nx, ny) in visited:
-                    continue
-
-                if (nx, ny) == (gx, gy):
-                    return True
-
-                visited.add((nx, ny))
-                queue.append((nx, ny))
+                if 0 <= nx < n and 0 <= ny < m:
+                    if obstacles[nx, ny] == 0 and (nx, ny) not in visited:
+                        if (nx, ny) == goal:
+                            return True
+                        visited.add((nx, ny))
+                        q.append((nx, ny))
 
         return False
+
+    def _reachable(self, starts, goals):
+        for s, g in zip(starts, goals):
+            if not self.bfs_reachable(self.OBSTACLES, s, g):
+                return False
+        return True
+    
 
     # -------------------------------------------------------
     # RESET
@@ -115,7 +118,21 @@ class SimpleMAPFEnv(gym.Env):
             "starts": self.agent_positions,
             "goals": self.agent_goals
         }
+    
     def reset(self, seed=None, options=None):
+        if seed is not None:
+            self.seed(seed)
+
+        self.steps = 0
+        self.agent_positions = self.init_starts
+        self.agent_goals = self.agent_goals
+        self.agent_reached = [False] * self.NUM_AGENTS
+
+        obs = [self.get_obs(i) for i in range(self.NUM_AGENTS)]
+        return obs, {}
+    
+
+    def init_env(self, seed=None, options=None, density=0.0):
         super().reset(seed=seed)
         self.steps = 0
 
@@ -124,7 +141,7 @@ class SimpleMAPFEnv(gym.Env):
             self.OBSTACLES = np.zeros((self.GRID_SIZE, self.GRID_SIZE), dtype=np.int32)
             for x in range(self.GRID_SIZE):
                 for y in range(self.GRID_SIZE):
-                    if random.random() < self.OBSTACLE_DENSITY:
+                    if random.random() < density:
                         self.OBSTACLES[x, y] = 1
 
             # 2) generuj starty i cele
@@ -139,7 +156,7 @@ class SimpleMAPFEnv(gym.Env):
                 for _try in range(100):
                     sx = random.randint(0, self.GRID_SIZE - 1)
                     sy = random.randint(0, self.GRID_SIZE - 1)
-                    if self.OBSTACLES[sx, sy] == 0 and (sx, sy) not in occupied:
+                    if self.OBSTACLES[sx, sy] == 0 and (sx, sy) not in occupied :
                         starts.append((sx, sy))
                         occupied.add((sx, sy))
                         break
@@ -162,21 +179,17 @@ class SimpleMAPFEnv(gym.Env):
             if not valid:
                 continue
 
-            # 3) SPRAWDŹ osiągalność
-            reachable = True
-            for s, g in zip(starts, goals):
-                if not self._reachable(s, g):
-                    reachable = False
-                    break
+            reachable = self._reachable(starts, goals)
 
             if reachable:
-                break  # mapa jest dobra – wychodzimy z while True
+                break 
 
         self.agent_positions = starts
         self.agent_goals = goals
+        self.init_starts = starts
         self.agent_reached = [False] * self.NUM_AGENTS
 
-        obs = [self._get_obs(i) for i in range(self.NUM_AGENTS)]
+        obs = [self.get_obs(i) for i in range(self.NUM_AGENTS)]
         return obs, {}
 
     # -------------------------------------------------------
@@ -271,7 +284,7 @@ class SimpleMAPFEnv(gym.Env):
         if self.steps >= self.max_steps:
             done = True
 
-        obs = [self._get_obs(i) for i in range(self.NUM_AGENTS)]
+        obs = [self.get_obs(i) for i in range(self.NUM_AGENTS)]
         info = {"num_agents_at_goal": sum(self.agent_reached)}
 
         return obs, rewards, done, info
@@ -279,7 +292,7 @@ class SimpleMAPFEnv(gym.Env):
     # -------------------------------------------------------
     # OBSERWACJE
     # -------------------------------------------------------
-    def _get_obs(self, agent_id):
+    def get_obs(self, agent_id):
         fov = np.zeros((self.FOV_SIZE, self.FOV_SIZE, 4), dtype=np.float32)
         ax, ay = self.agent_positions[agent_id]
         half = self.FOV_SIZE // 2

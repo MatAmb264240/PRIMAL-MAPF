@@ -1,4 +1,6 @@
+print("-------")
 import torch
+print(torch.cuda.is_available())
 import numpy as np
 
 from sb3_contrib import RecurrentPPO
@@ -8,6 +10,7 @@ from mapf_env_sb3 import MAPF_SB3Env
 from custom_policy import MAPFFeatureExtractor
 from il_callback import OnlineILCallback
 
+device = torch.device("cuda")
 
 # =========================================================
 # === LOAD EXPERT DATA ONCE
@@ -20,8 +23,8 @@ EXPERT_ACTIONS = expert_data["actions"]
 def load_one_expert_batch(batch_size=16):
     idx = np.random.choice(len(EXPERT_OBS), size=batch_size, replace=False)
 
-    obs = torch.as_tensor(EXPERT_OBS[idx], dtype=torch.float32, device="cuda")
-    actions = torch.as_tensor(EXPERT_ACTIONS[idx], dtype=torch.long, device="cuda")
+    obs = torch.as_tensor(EXPERT_OBS[idx], dtype=torch.float32, device=device)
+    actions = torch.as_tensor(EXPERT_ACTIONS[idx], dtype=torch.long, device=device)
 
     return obs, actions
 
@@ -45,7 +48,6 @@ def make_env(density):
 # === MAIN
 # =========================================================
 def main():
-    device = "cuda"
 
     # -----------------------------------------------------
     # POLICY CONFIG
@@ -100,17 +102,17 @@ def main():
     # -----------------------------------------------------
     il_callback = OnlineILCallback(
         expert_loader_fn=load_one_expert_batch,
-        il_coef=0.01,
-        every_n_steps=10_000,
+        il_coef=0.05,
+        every_n_steps=1_000,
         verbose=2,
     )
 
     # -----------------------------------------------------
     # CURRICULUM TRAINING LOOP
     # -----------------------------------------------------
-    TOTAL_STEPS = 5_000_000
+    TOTAL_STEPS = 1_000_000
     CURRICULUM_END = 0.2
-    CHUNK = 50_000
+    CHUNK = 5000
 
     steps_done = 0
 
@@ -118,14 +120,11 @@ def main():
         progress = steps_done / TOTAL_STEPS
         new_density = CURRICULUM_END * progress
 
-        vec_env.close()
-        vec_env = make_vec_env(make_env(new_density), n_envs=1)
-        model.set_env(vec_env)
+        vec_env.env_method("init_env", density=new_density)
 
         model.learn(
             total_timesteps=CHUNK,
-            callback=il_callback,
-            reset_num_timesteps=False,
+            callback=il_callback
         )
 
         steps_done += CHUNK
@@ -134,7 +133,7 @@ def main():
             f"density={new_density:.3f}"
         )
 
-        model.save("ppo_trained_agent")
+    model.save("ppo_trained_agent")
 
     vec_env.close()
     print("Training finished.")

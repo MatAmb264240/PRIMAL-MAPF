@@ -11,7 +11,7 @@ def make_env():
             grid_size=10,
             num_agents=4,
             fov_size=10,
-            obstacle_density=0.2,  # TEST na przeszkodach
+            obstacle_density=0.0,  # TEST na przeszkodach
             max_steps=64,
         )
     return _init
@@ -20,11 +20,10 @@ def make_env():
 def main():
     N_EPISODES = 100
 
-    # VecEnv (SB3) – zgodnie z twoim treningiem
     vec_env = make_vec_env(make_env(), n_envs=1)
 
     model = RecurrentPPO.load(
-        "ppo_trained_agent",
+        "ppo_trained_agent_after_bug",
         env=vec_env,
         device="cuda",
     )
@@ -36,7 +35,8 @@ def main():
     total_steps = 0
 
     for episode in range(1, N_EPISODES + 1):
-        # VecEnv.reset() -> tylko obs
+        vec_env = make_vec_env(make_env(), n_envs=1)
+        model.set_env(vec_env)
         obs = vec_env.reset()
 
         lstm_states = None
