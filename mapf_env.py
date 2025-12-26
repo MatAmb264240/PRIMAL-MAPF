@@ -4,7 +4,7 @@ import random
 import gymnasium as gym
 from gymnasium import spaces
 from collections import deque
-
+from solve_cbs import solve_cbs
 
 class SimpleMAPFEnv(gym.Env):
     """
@@ -32,7 +32,7 @@ class SimpleMAPFEnv(gym.Env):
         self.OBSTACLE_DENSITY = obstacle_density
         self.max_steps = max_steps
         self.seed_value = None  # Initialize the seed variable
-
+        self.paths = None
         # 0 = stay, 1 = right, 2 = left, 3 = down, 4 = up
         self.ACTIONS = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0)]
 
@@ -63,45 +63,58 @@ class SimpleMAPFEnv(gym.Env):
             random.seed(seed)
             np.random.seed(seed)
 
-    def _reachable(self, start, goal):
-        """Zwraca True, jeśli istnieje ścieżka start→goal omijająca przeszkody."""
-        (sx, sy) = start
-        (gx, gy) = goal
-
-        if self.OBSTACLES[sx, sy] == 1 or self.OBSTACLES[gx, gy] == 1:
+    def _reachable(self, starts, goals):
+        try:
+            paths = solve_cbs(
+                grid_size=self.GRID_SIZE,
+                obstacles=self.OBSTACLES, 
+                starts=starts, 
+                goals=goals
+            )
+            if all(len(path) > 0 for path in paths.values()):
+                self.paths = paths
+                return True
+        except RuntimeError:
+            print("reachable returns error")
             return False
-        if (sx, sy) == (gx, gy):
-            return True
+    # def _reachable(self, start, goal):
+    #     """Zwraca True, jeśli istnieje ścieżka start→goal omijająca przeszkody."""
+    #     (sx, sy) = start
+    #     (gx, gy) = goal
 
-        visited = set()
-        queue = [(sx, sy)]
-        visited.add((sx, sy))
+    #     if self.OBSTACLES[sx, sy] == 1 or self.OBSTACLES[gx, gy] == 1:
+    #         return False
+    #     if (sx, sy) == (gx, gy):
+    #         return True
 
-        moves = [(1,0), (-1,0), (0,1), (0,-1)]
+    #     visited = set()
+    #     queue = [(sx, sy)]
+    #     visited.add((sx, sy))
 
-        while queue:
-            x, y = queue.pop(0)
+    #     moves = [(1,0), (-1,0), (0,1), (0,-1)]
 
-            for dx, dy in moves:
-                nx, ny = x + dx, y + dy
+    #     while queue:
+    #         x, y = queue.pop(0)
 
-                if not (0 <= nx < self.GRID_SIZE and 0 <= ny < self.GRID_SIZE):
-                    continue
+    #         for dx, dy in moves:
+    #             nx, ny = x + dx, y + dy
 
-                if self.OBSTACLES[nx, ny] == 1:
-                    continue
+    #             if not (0 <= nx < self.GRID_SIZE and 0 <= ny < self.GRID_SIZE):
+    #                 continue
 
-                if (nx, ny) in visited:
-                    continue
+    #             if self.OBSTACLES[nx, ny] == 1:
+    #                 continue
 
-                if (nx, ny) == (gx, gy):
-                    return True
+    #             if (nx, ny) in visited:
+    #                 continue
 
-                visited.add((nx, ny))
-                queue.append((nx, ny))
+    #             if (nx, ny) == (gx, gy):
+    #                 return True
 
-        return False
+    #             visited.add((nx, ny))
+    #             queue.append((nx, ny))
 
+    #     return False
     # -------------------------------------------------------
     # RESET
     # -------------------------------------------------------
@@ -163,14 +176,16 @@ class SimpleMAPFEnv(gym.Env):
                 continue
 
             # 3) SPRAWDŹ osiągalność
-            reachable = True
-            for s, g in zip(starts, goals):
-                if not self._reachable(s, g):
-                    reachable = False
-                    break
+            # reachable = True
+            # for s, g in zip(starts, goals):
+            #     if not self._reachable(s, g):
+            #         reachable = False
+            #         break
 
-            if reachable:
-                break  # mapa jest dobra – wychodzimy z while True
+            # if reachable:
+            #     break  # mapa jest dobra – wychodzimy z while True
+            if self._reachable(starts, goals):
+                break
 
         self.agent_positions = starts
         self.agent_goals = goals

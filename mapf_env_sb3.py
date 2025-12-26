@@ -22,7 +22,7 @@ class MAPF_SB3Env(gym.Env):
         grid_size: int = 10,
         num_agents: int = 4,
         fov_size: int = 10,
-        obstacle_density: float = 0.2,
+        obstacle_density: float = 0.1,
         max_steps: int = 64,
     ):
         super().__init__()
@@ -32,7 +32,6 @@ class MAPF_SB3Env(gym.Env):
         self.obstacle_density = obstacle_density
         self.max_steps = max_steps
 
-        # oryginalne środowisko
         self._env = SimpleMAPFEnv(
             grid_size=self.grid_size,
             num_agents=self.num_agents,
@@ -41,10 +40,8 @@ class MAPF_SB3Env(gym.Env):
             max_steps=self.max_steps,
         )
 
-        # 5 akcji na agenta
         self.action_space = spaces.MultiDiscrete([5] * self.num_agents)
 
-        # Obserwacja: [wszyscy agenci spłaszczeni]
         fov_dim = self.fov_size * self.fov_size * 4
         goal_dim = 3
         mask_dim = 5

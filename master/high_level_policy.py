@@ -38,7 +38,6 @@ def HCBS(MAPF_instance, agents, use_pc=False,experiment_mode=False, max_time=300
     #           A.cost = SIC(A.solution)
     #           if A.cost < ∞ // A solution was found then
     #               Insert A to OPEN
-
     OPEN = open_type()
     entry = 0
     root = CTNode(constraints=None, solution=None, cost=None, parent=None, entry=entry)
@@ -46,6 +45,9 @@ def HCBS(MAPF_instance, agents, use_pc=False,experiment_mode=False, max_time=300
     root.constraints = set()
     root.solution = {agent.id: low_level_policy(MAPF_instance, agent, use_pc=use_pc,
                                                 constraints=root.extract_all_constraints(), **kwargs) for agent in agents}
+    for agent_id, (path, cost) in root.solution.items():
+        if path is None or cost == float('inf'):
+            return False  # cały problem nierozwiązywalny
     root.cost = sum([root.solution[agent.id][1] for agent in agents])
     OPEN.add_node(root)
     start_time = time.time()
