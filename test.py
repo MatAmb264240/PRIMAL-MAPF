@@ -11,7 +11,7 @@ def make_env():
             grid_size=10,
             num_agents=4,
             fov_size=10,
-            obstacle_density=0.2,
+            obstacle_density=0.1,
             max_steps=64,
         )
     return _init

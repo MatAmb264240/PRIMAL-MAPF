@@ -60,7 +60,7 @@ def main():
         net_arch=dict(pi=[], vf=[]),
     )
 
-    current_density = 0.2
+    current_density = 0.0
     vec_env = make_vec_env(make_env(current_density), n_envs=16)
 
     # -----------------------------------------------------
@@ -105,32 +105,30 @@ def main():
     # -----------------------------------------------------
     # CURRICULUM TRAINING LOOP
     # -----------------------------------------------------
-    TOTAL_STEPS = 2_000_000
-    # CURRICULUM_END = 0.2
-    # CHUNK = 50_000
-    model.learn(total_timesteps=TOTAL_STEPS)
-    # steps_done = 0
+    TOTAL_STEPS = 100_000_000
+    CURRICULUM_END = 0.2
+    CHUNK = 500_000
+    # model.learn(total_timesteps=TOTAL_STEPS)
+    steps_done = 0
 
-    # while steps_done < TOTAL_STEPS:
-    #     progress = steps_done / TOTAL_STEPS
-    #     new_density = CURRICULUM_END * progress
+    while steps_done < TOTAL_STEPS:
+        progress = steps_done / TOTAL_STEPS
+        new_density = CURRICULUM_END * progress
 
-    #     vec_env.close()
-    #     vec_env = make_vec_env(make_env(new_density), n_envs=1)
-    #     model.set_env(vec_env)
+        vec_env.env_method(
+            "set_obstacle_density",
+            new_density
+        )
+        model.learn(total_timesteps=CHUNK)
 
-    #     model.learn(
-    #         total_timesteps=CHUNK,
-    #         callback=il_callback,
-    #         reset_num_timesteps=False,
-    #     )
-
-    #     steps_done += CHUNK
-    #     print(
-    #         f"[CURRICULUM] steps={steps_done:,} "
-    #         f"density={new_density:.3f}"
-    #     )
-
+        steps_done += CHUNK
+        print(
+            f"[CURRICULUM] steps={steps_done:,} "
+            f"density={new_density:.3f}"
+        )
+        if steps_done % 10_000_000 == 0:
+            model.save("ppo_trained_agent")
+    
     model.save("ppo_trained_agent")
 
     vec_env.close()

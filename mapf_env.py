@@ -128,6 +128,9 @@ class SimpleMAPFEnv(gym.Env):
             "starts": self.agent_positions,
             "goals": self.agent_goals
         }
+    def set_obstacle_density(self, density: float):
+        self.OBSTACLE_DENSITY = float(density)
+        
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.steps = 0

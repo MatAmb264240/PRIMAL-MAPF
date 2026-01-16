@@ -68,6 +68,10 @@ class MAPF_SB3Env(gym.Env):
 
         flat = np.concatenate(per_agent_vecs, axis=0)
         return flat
+    
+    def set_obstacle_density(self, density: float):
+        self.obstacle_density = float(density)
+        self._env.set_obstacle_density(density)
 
     def reset(self, seed=None, options=None):
         if seed is not None:
